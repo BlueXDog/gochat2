@@ -12,11 +12,11 @@ import (
 
 // ConnectionClient is used to creat struct saving client connection
 type ConnectionClient struct {
-	stream pb.Broadcast_CreateStreamServer
-	id     string
+	stream      pb.Broadcast_CreateStreamServer
+	id          string
 	displayName string
-	active bool
-	err    chan error
+	active      bool
+	err         chan error
 }
 
 // Server is the struct to create server
@@ -27,11 +27,11 @@ type Server struct {
 // CreateStream is the function to do
 func (s *Server) CreateStream(pconn *pb.Connect, stream pb.Broadcast_CreateStreamServer) error {
 	conn := &ConnectionClient{
-		stream: stream,
-		id:     pconn.User.Id,
+		stream:      stream,
+		id:          pconn.User.Id,
 		displayName: pconn.User.DisplayName,
-		active: true,
-		err:    make(chan error),
+		active:      true,
+		err:         make(chan error),
 	}
 	s.Connection = append(s.Connection, conn)
 	return <-conn.err
@@ -41,37 +41,68 @@ func (s *Server) CreateStream(pconn *pb.Connect, stream pb.Broadcast_CreateStrea
 func (s *Server) BroadcastMessage(ctx context.Context, mess *pb.Message) (*pb.Close, error) {
 	wait := sync.WaitGroup{}
 	done := make(chan int)
+	groupMember := make(map[string][]string)
+	//useringroup:=[]string{"hello","hi"}
+	groupMember["home"] = []string{"vinh", "trung", "cuong", "toan"}
+
+	var flagGroup bool
 
 	for _, conn := range s.Connection {
 
 		wait.Add(1)
 		go func(mess *pb.Message, conn *ConnectionClient) {
-			messType:=mess.MessType
+			messType := mess.MessType
+			channelID := mess.ChannelId
 			if conn.active {
 
-				if messType =="private"{
-				receiverName:=mess.ReceiverDisplayName
-				if receiverName==conn.displayName{
-					err:=conn.stream.Send(mess)
-					fmt.Printf("Sending message %v to user %v ", mess.Id, conn.id)
-					if err != nil {
-						fmt.Printf("error with stream %v ", conn.stream)
-						conn.active = false
+				if messType == "private" {
+					receiverName := mess.ReceiverDisplayName
+					if receiverName == conn.displayName {
+						err := conn.stream.Send(mess)
+						fmt.Printf("Sending message %v to user %v ", mess.Id, conn.id)
+						if err != nil {
+							fmt.Printf("error with stream %v ", conn.stream)
+							conn.active = false
+						}
+
 					}
 
-				}
-
-				} else if messType =="public"{	
+				} else if messType == "public" {
 					err := conn.stream.Send(mess)
 					fmt.Printf("Sending message %v to user %v ", mess.Id, conn.id)
 					if err != nil {
 						fmt.Printf("error with stream %v ", conn.stream)
 						conn.active = false
 					}
+				}
+				if messType == "group" {
+					fmt.Printf("this is group chat ")
+
+					for _, username := range groupMember[channelID] {
+						if conn.displayName == username {
+							flagGroup = true
+							break
+						}
 					}
+					if flagGroup {
+						for _,username:=range groupMember[channelID]{
+							if username == conn.displayName {
+								err := conn.stream.Send(mess)
+								fmt.Printf("Sending message %v to user %v ", mess.Id, conn.id)
+								if err != nil {
+									fmt.Printf("error with stream %v ", conn.stream)
+									conn.active = false
+								}
+		
+							}
+						}
+
+					}
+
+				}
 			}
 			defer wait.Done()
-			
+
 		}(mess, conn)
 
 	}

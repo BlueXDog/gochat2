@@ -10,11 +10,8 @@ import(
 	"encoding/hex"
 	"bufio"
 	"os"
-	"time"
-	
+	"time"	
 )
-
-
 func connect(user *pb.User,client pb.BroadcastClient, messType string, receiverName string,channelID string) error{
 	var streamError error
 	done:=make(chan int)
@@ -92,8 +89,14 @@ func main(){
 	if messType=="private"{
 		fmt.Println("nhap username nguoi ban muon nhan ")
 		fmt.Scanln(&receiveName)
-	}else {
+	}else if messType=="public" {
 		receiveName="everyone"
+		channelID="all"
+		
+	}else if messType=="group" {
+		receiveName="everyone"
+		fmt.Println("nhap channel ma ban muon group chat ")
+		fmt.Scanln(&channelID)
 	}
 	
 	
@@ -107,7 +110,6 @@ func main(){
 	conn,err:=grpc.Dial("localhost:8080",grpc.WithInsecure())
 	if err != nil {
 		fmt.Print("could not connect to server at localhost 8080")
-
 	}
 	client:=pb.NewBroadcastClient(conn)
 	connect(user, client,messType, receiveName,channelID )
