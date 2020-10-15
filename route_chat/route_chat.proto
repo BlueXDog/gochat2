@@ -13,6 +13,9 @@ message Message{
     User user=2;
     string message =3;
     string timestamp=4;
+    string receiver_display_name=5;
+    string channel_id =7;
+    string mess_type=8;
 }
 
 message Connect{
@@ -26,4 +29,5 @@ message Close{
 service Broadcast{
     rpc CreateStream(Connect) returns (stream Message);
     rpc BroadcastMessage (Message) returns (Close);
+    
 }

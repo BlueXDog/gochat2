@@ -11,12 +11,11 @@ import(
 	"bufio"
 	"os"
 	"time"
-	"flag"
 	
 )
 
 
-func connect(user *pb.User,client pb.BroadcastClient) error{
+func connect(user *pb.User,client pb.BroadcastClient, messType string, receiverName string,channelID string) error{
 	var streamError error
 	done:=make(chan int)
 	wait:=sync.WaitGroup{}
@@ -29,7 +28,7 @@ func connect(user *pb.User,client pb.BroadcastClient) error{
 		fmt.Printf("Connect to server fail : %v",err)
 	}
 	wait.Add(1)
-	// receive stream 
+	// receive stream and display message from user 
 	go func (str pb.Broadcast_CreateStreamClient){
 		wait.Done()
 		for {
@@ -42,20 +41,23 @@ func connect(user *pb.User,client pb.BroadcastClient) error{
 			fmt.Printf("%v : %s \n ",msg.User.DisplayName,msg.Message)
 		}
 	}(stream)
-	
+	// send message to user 
 	wait.Add(1)
 	go func(){
-		name :=flag.String("x","VinhDOngdo","")
+		
 		defer wait.Done()
 		scanner:=bufio.NewScanner(os.Stdin)
 		ts :=time.Now()
-		msgID:=sha256.Sum256([]byte(ts.String()+ *name))
+		msgID:=sha256.Sum256([]byte(ts.String()+ user.DisplayName))
 		for scanner.Scan(){
 			msg:=&pb.Message{
 				Id: hex.EncodeToString(msgID[:]),
 				User:user,
 				Message: scanner.Text(),
 				Timestamp: ts.String(), 
+				MessType:messType,
+				ReceiverDisplayName: receiverName,
+				ChannelId: channelID,
 
 			}
 			_,err:=client.BroadcastMessage(context.Background(),msg)
@@ -77,12 +79,29 @@ func connect(user *pb.User,client pb.BroadcastClient) error{
 }
 
 func main(){
-	name :=flag.String("N","VinhDOngdo","")
+	//name :=flag.String("N","VinhDOngdo","")
+	var username string
+	fmt.Println("nhap username cua ban :")
+	fmt.Scanln(&username)
+	fmt.Println("nhap private neu ban muon nhan rieng , nhap public neu ban muon nhan tat ca ")
+	var messType string
+	fmt.Scanln(&messType)
+	var receiveName string
+	var channelID string
+	channelID=" "
+	if messType=="private"{
+		fmt.Println("nhap username nguoi ban muon nhan ")
+		fmt.Scanln(&receiveName)
+	}else {
+		receiveName="everyone"
+	}
+	
+	
 	ts:=time.Now()
-	id := sha256.Sum256([]byte(ts.String()+ *name))
+	id := sha256.Sum256([]byte(ts.String()+ username))
 	user:=&pb.User{
 		Id: hex.EncodeToString(id[:]),
-		DisplayName: *name,
+		DisplayName: username,
 	}
 
 	conn,err:=grpc.Dial("localhost:8080",grpc.WithInsecure())
@@ -91,6 +110,6 @@ func main(){
 
 	}
 	client:=pb.NewBroadcastClient(conn)
-	connect(user, client)
+	connect(user, client,messType, receiveName,channelID )
 
 }
